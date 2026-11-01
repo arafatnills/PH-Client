@@ -1,8 +1,13 @@
 import apiClient from "@/lib/apiClient";
-import { LoginUser } from "@/types/auth.type";
+import { LoginUser, SignupUser } from "@/types";
+
 
 export function userLogin(payload: LoginUser) {
   return apiClient("/auth/login", { method: "POST", body: payload });
+}
+
+export function userSignup(payload: SignupUser) {
+  return apiClient("/auth/signup", { method: "POST", body: payload });
 }
 
 export function userLogout() {

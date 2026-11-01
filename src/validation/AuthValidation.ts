@@ -18,7 +18,7 @@ export const SignupZodSchema = z
       .string("Not A String!!!!!")
       .min(3, "Name must atleast 3 characters long!!!")
       .max(20),
-    email: z.email("Not email!!"),
+    email: z.email("Invalid Email!"),
     password: z
       .string()
       .min(8, "Password Must Minimum 8 Characters Long.")

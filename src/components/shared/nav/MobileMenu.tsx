@@ -86,7 +86,7 @@ const MobileMenu = ({ user, onLogout }: MobileMenuProps) => {
                   </SheetClose>
                   <SheetClose asChild>
                     <Button asChild>
-                      <Link href="/register">Sign up</Link>
+                      <Link href="/signup">Sign up</Link>
                     </Button>
                   </SheetClose>
                 </div>

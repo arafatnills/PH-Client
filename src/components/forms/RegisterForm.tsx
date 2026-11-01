@@ -2,14 +2,19 @@
 import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
+import { useSignup } from "@/hooks";
+import { getErrorMessage } from "@/utils/getErrorMessage";
 import { SignupFormValues, SignupZodSchema } from "@/validation/AuthValidation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeClosed } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import GoogleLoginComponent from "../shared/google-login/GoogleLoginComponent";
+import Logo from "../shared/Logo";
 import { Card, CardContent } from "../ui/card";
 import {
   Field,
@@ -20,11 +25,14 @@ import {
 } from "../ui/field";
 import { Input } from "../ui/input";
 
-export function RegisterForm({
+export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const [showPassword, setShowPassword] = useState(false);
+  const { mutate: signUp, isPending } = useSignup();
+  const router = useRouter();
+
   const {
     register,
     formState: { errors },
@@ -34,7 +42,29 @@ export function RegisterForm({
     mode: "onTouched",
   });
   const onSubmit = (data: SignupFormValues) => {
-    console.log(data);
+    const params = new URLSearchParams({ email: data.email });
+    const payload = {
+      name: data.name.trim(),
+      email: data.email.trim().toLowerCase(),
+      password: data.password.trim(),
+      patient: {
+        contactNumber: data.patient?.contactNumber.trim(),
+      },
+    };
+    signUp(payload, {
+      onSuccess: (data) => {
+        toast.success("Signup Success", {
+          description: "Place verify your account!",
+        });
+
+        router.push(`/signup/verify-account?${params}`);
+      },
+      onError: (err) => {
+        toast.error("Signup Failed", {
+          description: getErrorMessage(err),
+        });
+      },
+    });
   };
   return (
     <div className={cn("flex flex-col gap-6 ", className)} {...props}>
@@ -56,11 +86,11 @@ export function RegisterForm({
                   placeholder="Enter Your Full Name"
                   required
                   className="h-11"
-                  {...register('name')}
+                  {...register("name")}
                 />
-                {
-                  errors && <p className="text-red-500">{errors.name?.message}</p>
-                }
+                {errors && (
+                  <p className="text-red-500">{errors.name?.message}</p>
+                )}
               </Field>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -71,11 +101,11 @@ export function RegisterForm({
                   placeholder="Enter Your Full Name"
                   required
                   className="h-11"
-                  {...register('email')}
+                  {...register("email")}
                 />
-                {
-                  errors && <p className="text-red-500">{errors.email?.message}</p>
-                }
+                {errors && (
+                  <p className="text-red-500">{errors.email?.message}</p>
+                )}
               </Field>
               <Field>
                 <FieldLabel htmlFor="ph">Phone</FieldLabel>
@@ -86,11 +116,13 @@ export function RegisterForm({
                   placeholder="Enter Your Full Name"
                   required
                   className="h-11"
-                  {...register('patient.contactNumber')}
+                  {...register("patient.contactNumber")}
                 />
-                {
-                  errors && <p className="text-red-500">{errors.patient?.contactNumber?.message}</p>
-                }
+                {errors && (
+                  <p className="text-red-500">
+                    {errors.patient?.contactNumber?.message}
+                  </p>
+                )}
               </Field>
               <Field>
                 <div className="flex items-center">
@@ -122,9 +154,9 @@ export function RegisterForm({
                     {showPassword ? <Eye size={20} /> : <EyeClosed size={20} />}
                   </button>
                 </div>
-                {
-                  errors && <p className="text-red-500">{errors.password?.message}</p>
-                }
+                {errors && (
+                  <p className="text-red-500">{errors.password?.message}</p>
+                )}
               </Field>
               <Field>
                 <FieldLabel htmlFor="cPassword">Confirm Password</FieldLabel>
@@ -147,12 +179,14 @@ export function RegisterForm({
                     {showPassword ? <Eye size={20} /> : <EyeClosed size={20} />}
                   </button>
                 </div>
-                {
-                  errors && <p className="text-red-500">{errors.confirmPassword?.message}</p>
-                }
+                {errors && (
+                  <p className="text-red-500">
+                    {errors.confirmPassword?.message}
+                  </p>
+                )}
               </Field>
               <Field className="">
-                <Button type="submit" className="h-11">
+                <Button type="submit" disabled={isPending} className="h-11">
                   Signup
                 </Button>
               </Field>
