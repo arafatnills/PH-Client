@@ -1,4 +1,12 @@
-import { getMe, googleOAuth, userLogin, userLogout, userSignup } from "@/api";
+import {
+  getMe,
+  googleOAuth,
+  resendOTP,
+  userLogin,
+  userLogout,
+  userSignup,
+  userVerifyOTP,
+} from "@/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useLogin = () => {
@@ -7,6 +15,16 @@ export const useLogin = () => {
     mutationFn: userLogin,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["user"] }),
   });
+};
+
+export const useVerifyOTP = () => {
+  return useMutation({
+    mutationFn: userVerifyOTP,
+  });
+};
+
+export const useResendOTP = () => {
+  return useMutation({ mutationFn: resendOTP });
 };
 
 export const useSignup = () => {

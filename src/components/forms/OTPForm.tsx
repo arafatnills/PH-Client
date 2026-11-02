@@ -3,8 +3,8 @@
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,17 +16,103 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
+import { useResendOTP, useVerifyOTP } from "@/hooks";
+import { getErrorMessage } from "@/utils/getErrorMessage";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { toast } from "sonner";
 
 function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
-
+  const email = searchParams.get("email")?.trim().toLowerCase() || "";
   const [otp, setOtp] = useState("");
+  const router = useRouter();
+  const { mutate: resendOTP, isPending: isResending } = useResendOTP();
+  const { mutate: verifyOTP, isPending } = useVerifyOTP();
+  const RESEND_SECONDS = 60;
+  const storageKey = `otp-resend-until:${email}`; // per-email key
+  const [until, setUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
+  const secondsLeft =
+    until === null ? 0 : Math.max(0, Math.ceil((until - now) / 1000));
+
+  const startCooldown = () => {
+    const end = Date.now() + RESEND_SECONDS * 1000;
+    try {
+      localStorage.setItem(storageKey, String(end));
+    } catch {}
+    setNow(Date.now());
+    setUntil(end);
+  };
+
+  useEffect(() => {
+    if (!email) return;
+    let saved = 0;
+    try {
+      saved = Number(localStorage.getItem(storageKey)) || 0;
+    } catch { }
+
+    if (saved === 0) {
+      startCooldown(); // first visit after signup
+    } else {
+      setNow(Date.now());
+      setUntil(saved); // running or already expired, secondsLeft handles both
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, storageKey]);
+
+  // Tick every second until the end time is reached
+  useEffect(() => {
+    if (until === null || until <= Date.now()) return;
+    const id = setInterval(() => {
+      const n = Date.now();
+      setNow(n);
+      if (n >= until) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [until]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Submitted:", { email, otp });
+    const payload = {
+      email,
+      otp,
+    };
+    verifyOTP(payload, {
+      onSuccess: (data) => {
+        toast.success("OTP Verified", {
+          description: "Your email has been successfully verified.",
+        });
+
+        router.push("/");
+      },
+      onError: (err) => {
+        toast.error("OTP Verification Failed", {
+          description: getErrorMessage(err),
+        });
+      },
+    });
+  };
+
+  const handleResend = () => {
+    if (!email || secondsLeft > 0) return;
+
+    resendOTP(
+      { email },
+      {
+        onSuccess: () => {
+          toast.success("OTP Sent", {
+            description: "A new code has been sent to your email.",
+          });
+          setOtp("");
+          startCooldown();
+        },
+        onError: (err) => {
+          toast.error("Failed to resend OTP", {
+            description: getErrorMessage(err),
+          });
+        },
+      },
+    );
   };
 
   return (
@@ -87,7 +173,7 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
                 className="w-full mt-2"
                 disabled={otp.length !== 6 || !email}
               >
-                Verify Account
+                {isPending ? "Verifying..." : "Verify OTP"}
               </Button>
             </form>
 
@@ -95,9 +181,15 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
               Didn't receive the code?{" "}
               <button
                 type="button"
+                onClick={handleResend}
+                disabled={secondsLeft > 0 || isResending || !email}
                 className="underline underline-offset-4 hover:text-primary font-medium"
               >
-                Resend OTP
+                {isResending
+                  ? "Sending..."
+                  : secondsLeft > 0
+                    ? `Resend in ${secondsLeft}s`
+                    : "Resend OTP"}
               </button>
             </div>
           </div>

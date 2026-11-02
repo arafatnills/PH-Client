@@ -32,11 +32,9 @@ export const SignupZodSchema = z
       ),
     patient: z
       .object({
-        contactNumber: z
-          .string()
-          .regex(/^(?:\+8801|01)[3-9]\d{8}$/, {
-            message: "Invalid phone number",
-          }),
+        contactNumber: z.string().regex(/^(?:\+8801|01)[3-9]\d{8}$/, {
+          message: "Invalid phone number",
+        }),
       })
       .optional(),
     confirmPassword: z.string(),
@@ -45,6 +43,8 @@ export const SignupZodSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
+
 
 export type LoginFormValues = z.infer<typeof loginUserZodSchema>;
 export type SignupFormValues = z.infer<typeof SignupZodSchema>;

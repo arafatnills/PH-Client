@@ -11,3 +11,9 @@ export interface SignupUser {
     contactNumber?: string;
   };
 }
+
+
+export interface VerifyOTP {
+  email: string;
+  otp: string;
+}
