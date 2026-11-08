@@ -9,14 +9,32 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ApplyAsDoctorFormValues, ApplyAsDoctorValidationZodSchema } from "@/validation";
+import { useApplyAsDoctor } from "@/hooks";
+import { DoctorProfilePayload } from "@/types";
+import { getErrorMessage } from "@/utils/getErrorMessage";
+import {
+  ApplyAsDoctorFormValues,
+  ApplyAsDoctorValidationZodSchema,
+} from "@/validation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { UploadCloud, X } from "lucide-react";
+import {
+  File,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Loader,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 export function ApplyDoctorForm() {
+  const { mutate: applyDoctor, isPending } = useApplyAsDoctor();
+  const router = useRouter();
   const {
     register,
     formState: { errors },
@@ -28,7 +46,44 @@ export function ApplyDoctorForm() {
   });
 
   const onSummit = (data: ApplyAsDoctorFormValues) => {
-    console.log(data);
+    const doctorData: DoctorProfilePayload = {
+      user: {
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+      },
+      doctor: {
+        address: data.address.trim(),
+        specialization: data.specialization.trim(),
+        licenseNumber: data.licenseNumber.trim(),
+        qualifications: data.qualifications.trim(),
+        experienceYears: data.experienceYears,
+        bio: data.bio.trim(),
+        consultationFee: data.consultationFee,
+        contactNumber: data.contactNumber.trim(),
+      },
+    };
+
+    const file = data.resume;
+    const additionalFiles = data.additionalFiles || [];
+
+    const params = new URLSearchParams({ email: doctorData.user.email });
+
+    applyDoctor(
+      { data: doctorData, file, additionalFiles },
+      {
+        onSuccess: (data) => {
+          toast.success("We have sent an OTP to your email.", {
+            description: "Please verify your email to complete the application process.",
+          });
+          router.replace(`/apply/verify-email?${params.toString()}`);
+        },
+        onError: (err) => {
+          toast.error("Doctor application failed", {
+            description: getErrorMessage(err),
+          });
+        },
+      },
+    );
   };
 
   return (
@@ -237,7 +292,17 @@ export function ApplyDoctorForm() {
                               <div className="flex h-11 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
                                 <UploadCloud className="h-4 w-4 text-muted-foreground" />
                                 <span className="truncate max-w-xs">
-                                  {fileName ? fileName : "Choose Resume PDF"}
+                                  {fileName ? (
+                                    <>
+                                      <FileSpreadsheet
+                                        size={20}
+                                        className="text-blue-400 mr-2 inline"
+                                      />
+                                      {fileName}
+                                    </>
+                                  ) : (
+                                    "Choose Resume PDF"
+                                  )}
                                 </span>
                               </div>
                             </label>
@@ -327,9 +392,38 @@ export function ApplyDoctorForm() {
                               onChange={(e) => {
                                 const files = e.target.files;
                                 if (files && files.length > 0) {
-                                  // If files already exist in state, append new selections, otherwise create new array
                                   const newFiles = Array.from(files);
-                                  onChange([...filesArray, ...newFiles]);
+
+                                  // Filter out any existing files that match the name and size of newly selected files
+                                  const filteredExistingFiles =
+                                    filesArray.filter(
+                                      (existingFile) =>
+                                        !newFiles.some(
+                                          (newFile) =>
+                                            newFile.name ===
+                                              existingFile.name &&
+                                            newFile.size === existingFile.size,
+                                        ),
+                                    );
+
+                                  const mergedFiles = [
+                                    ...filteredExistingFiles,
+                                    ...newFiles,
+                                  ];
+
+                                  if (mergedFiles.length > 5) {
+                                    toast.warning(
+                                      "You can only upload a maximum of 5 files.",
+                                    );
+
+                                    const allowedFiles = mergedFiles.slice(
+                                      0,
+                                      5,
+                                    );
+                                    onChange(allowedFiles);
+                                  } else {
+                                    onChange(mergedFiles);
+                                  }
                                 }
                                 // Reset input target value so the same file can be uploaded again if deleted
                                 e.target.value = "";
@@ -339,25 +433,59 @@ export function ApplyDoctorForm() {
                             {/* Dynamic File List Badges with left-side cross action buttons */}
                             {hasFiles && (
                               <div className="flex flex-wrap gap-1.5 pt-1">
-                                {filesArray.map((file, index) => (
-                                  <div
-                                    key={`${file.name}-${index}`}
-                                    className="flex items-center gap-2 rounded-md bg-muted pl-1.5 pr-2.5 py-1 text-xs font-medium text-muted-foreground border truncate max-w-60"
-                                  >
-                                    {/* Left Side Cross Remove Button */}
-                                    <Button
-                                      type="button" // Critical to prevent this button from accidentally submitting the form
-                                      variant='destructive'
-                                      onClick={() => handleRemoveFile(index)}
-                                      className="flex h-4 w-4 items-center justify-center text-red-700"
+                                {filesArray.map((file, index) => {
+                                  const isImage =
+                                    file.type.startsWith("image/");
+                                  const isPdf = file.type === "application/pdf";
+                                  const isSpreadsheet =
+                                    file.type.includes("spreadsheet") ||
+                                    file.type.includes("csv") ||
+                                    file.type.includes("excel");
+
+                                  return (
+                                    <div
+                                      key={`${file.name}-${index}`}
+                                      className="flex w-full justify-between items-center gap-2 rounded-md bg-muted pl-1.5 pr-2.5 py-1 text-xs font-medium text-muted-foreground border truncate max-w-60"
                                     >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                    <span className="truncate">
-                                      {file.name}
-                                    </span>
-                                  </div>
-                                ))}
+                                      <span className="truncate flex items-center gap-1">
+                                        {isImage ? (
+                                          <FileImage
+                                            size={20}
+                                            className="text-green-500"
+                                          />
+                                        ) : isPdf ? (
+                                          <FileText
+                                            size={20}
+                                            className="text-red-500"
+                                          />
+                                        ) : isSpreadsheet ? (
+                                          <FileSpreadsheet
+                                            size={20}
+                                            className="text-blue-500"
+                                          />
+                                        ) : (
+                                          <File
+                                            size={20}
+                                            className="text-gray-400"
+                                          />
+                                        )}
+
+                                        <span className="truncate">
+                                          {file.name}
+                                        </span>
+                                      </span>
+
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        onClick={() => handleRemoveFile(index)}
+                                        className="flex h-4 w-4 items-center justify-center text-red-700"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -379,7 +507,7 @@ export function ApplyDoctorForm() {
 
               <Field>
                 <Button type="submit" className="h-11">
-                  Submit application
+                  {isPending ? <Loader /> : "Submit Application"}
                 </Button>
               </Field>
             </FieldGroup>

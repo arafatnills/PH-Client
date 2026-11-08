@@ -16,20 +16,36 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { useResendOTP, useVerifyOTP } from "@/hooks";
+import { useApplyAsDoctorVerifyOTP, useResendOTP, useVerifyOTP } from "@/hooks"; // Adjust these hooks if you have separate ones for doctor/patient
 import { getErrorMessage } from "@/utils/getErrorMessage";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { toast } from "sonner";
 
-function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
+export type OTPMode = "PATIENT" | "DOCTOR";
+
+interface OTPFormProps extends React.ComponentProps<"div"> {
+  mode: OTPMode;
+}
+
+function OTPFormContent({
+  className,
+  mode = "PATIENT",
+  ...props
+}: OTPFormProps) {
   const searchParams = useSearchParams();
   const email = searchParams.get("email")?.trim().toLowerCase() || "";
   const [otp, setOtp] = useState("");
   const router = useRouter();
+
+  // If you have different API hooks for Doctor vs Patient, you can switch them here based on the `mode` prop.
+  // For this example, assuming they use the same endpoint, or the hook internally knows how to handle it.
   const { mutate: resendOTP, isPending: isResending } = useResendOTP();
   const { mutate: verifyOTP, isPending } = useVerifyOTP();
+
+  const { mutate: applyAsDoctorVerifyOTP } = useApplyAsDoctorVerifyOTP();
+  const verify = mode === "DOCTOR" ? applyAsDoctorVerifyOTP : verifyOTP;
   const RESEND_SECONDS = 60;
-  const storageKey = `otp-resend-until:${email}`; // per-email key
+  const storageKey = `otp-resend-until:${mode}-${email}`; // Scoped by mode and email
   const [until, setUntil] = useState<number | null>(null);
   const [now, setNow] = useState(0);
   const secondsLeft =
@@ -49,18 +65,17 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
     let saved = 0;
     try {
       saved = Number(localStorage.getItem(storageKey)) || 0;
-    } catch { }
+    } catch {}
 
     if (saved === 0) {
-      startCooldown(); // first visit after signup
+      startCooldown();
     } else {
       setNow(Date.now());
-      setUntil(saved); // running or already expired, secondsLeft handles both
+      setUntil(saved);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email, storageKey]);
 
-  // Tick every second until the end time is reached
   useEffect(() => {
     if (until === null || until <= Date.now()) return;
     const id = setInterval(() => {
@@ -76,13 +91,24 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
     const payload = {
       email,
       otp,
+      // You can pass the mode to your backend if it needs to know who is verifying
+      // role: mode
     };
-    verifyOTP(payload, {
-      onSuccess: (data) => {
+
+    verify(payload, {
+      onSuccess: () => {
+        if (mode === "DOCTOR") {
+          toast.success("OTP Verified", {
+            description:
+              "An Admin will review your application. This may take 1-2 business days. You will receive an email once your account is approved.",
+          });
+          router.push("/");
+          return;
+        }
+
         toast.success("OTP Verified", {
           description: "Your email has been successfully verified.",
         });
-
         router.push("/");
       },
       onError: (err) => {
@@ -97,7 +123,7 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
     if (!email || secondsLeft > 0) return;
 
     resendOTP(
-      { email },
+      { email /*, role: mode */ },
       {
         onSuccess: () => {
           toast.success("OTP Sent", {
@@ -171,7 +197,7 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
               <Button
                 type="submit"
                 className="w-full mt-2"
-                disabled={otp.length !== 6 || !email}
+                disabled={otp.length !== 6 || !email || isPending}
               >
                 {isPending ? "Verifying..." : "Verify OTP"}
               </Button>
@@ -183,7 +209,7 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
                 type="button"
                 onClick={handleResend}
                 disabled={secondsLeft > 0 || isResending || !email}
-                className="underline underline-offset-4 hover:text-primary font-medium"
+                className="underline underline-offset-4 hover:text-primary font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isResending
                   ? "Sending..."
@@ -196,7 +222,7 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
 
           <div className="relative hidden bg-muted md:block">
             <Image
-              src="/register.jpg"
+              src={"/register.jpg"}
               alt="Security Verification"
               fill
               loading="eager"
@@ -210,14 +236,14 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
       <FieldDescription className="px-6 text-center text-sm text-muted-foreground">
         By clicking continue, you agree to our{" "}
         <Link
-          href="#"
+          href="/terms"
           className="underline underline-offset-4 hover:text-primary"
         >
           Terms of Service
         </Link>{" "}
         and{" "}
         <Link
-          href="#"
+          href="/privacy"
           className="underline underline-offset-4 hover:text-primary"
         >
           Privacy Policy
@@ -228,7 +254,7 @@ function OTPFormContent({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-export function OTPForm(props: React.ComponentProps<"div">) {
+export function OTPForm(props: OTPFormProps) {
   return (
     <Suspense
       fallback={
