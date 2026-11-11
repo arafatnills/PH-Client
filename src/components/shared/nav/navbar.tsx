@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -87,6 +87,7 @@ export default function Navbar() {
                     className="relative h-9 w-9 rounded-full p-0"
                   >
                     <Avatar className="h-9 w-9">
+                      <AvatarImage src={user.imageUrl} alt={user.name} />
                       <AvatarFallback className="bg-primary/10 font-semibold text-primary">
                         {initial}
                       </AvatarFallback>
