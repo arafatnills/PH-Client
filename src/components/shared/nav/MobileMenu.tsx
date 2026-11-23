@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { UserRole } from "@/types";
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,10 +13,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "../../ui/sheet";
-import { navLinks } from "./navLinks";
+import { dashboardRedirectRoute, navLinks } from "./navLinks";
 
 type MobileMenuProps = {
-  user?: { name?: string; email?: string } | null;
+  user?: { name?: string; email?: string; role?: string } | null;
   onLogout: () => void;
 };
 
@@ -24,6 +25,8 @@ const MobileMenu = ({ user, onLogout }: MobileMenuProps) => {
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+  const role = user?.role as UserRole;
+  const redirectPath = dashboardRedirectRoute[role] || "/";
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -59,7 +62,7 @@ const MobileMenu = ({ user, onLogout }: MobileMenuProps) => {
             <>
               <SheetClose asChild>
                 <Link
-                  href="/dashboard"
+                  href={redirectPath}
                   className="rounded-md px-3 py-2 text-sm hover:bg-accent"
                 >
                   Dashboard

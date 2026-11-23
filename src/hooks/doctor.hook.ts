@@ -1,5 +1,5 @@
-import { applyAsDoctor, verifyDoctorApplyOTP } from "@/api";
-import { useMutation } from "@tanstack/react-query";
+import { applyAsDoctor, getAllDoctors, verifyDoctorApplyOTP } from "@/api";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
 export const useApplyAsDoctor = () => {
   return useMutation({
@@ -11,3 +11,19 @@ export const useApplyAsDoctorVerifyOTP = () => {
     mutationFn: verifyDoctorApplyOTP,
   });
 };
+
+
+export const useSuspenseGetAllDoctors = () => {
+  return useSuspenseQuery({
+    queryKey: ["doctors"],
+    queryFn: getAllDoctors,
+  });
+};
+
+//? normal
+// export const useGetAllDoctors = () => {
+//   return useQuery({
+//     queryKey: ["doctors"],
+//     queryFn: getAllDoctors,
+//   });
+// };

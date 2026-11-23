@@ -19,10 +19,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetMe, useLogout } from "@/hooks/auth.hook";
 import { cn } from "@/lib/utils";
+import { UserRole } from "@/types";
 import Logo from "../Logo";
 import { ThemeToggle } from "../theme-toggle";
 import MobileMenu from "./MobileMenu";
-import { navLinks } from "./navLinks";
+import { dashboardRedirectRoute, navLinks } from "./navLinks";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -47,6 +48,9 @@ export default function Navbar() {
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const role = user?.role as UserRole;
+  const redirectPath = dashboardRedirectRoute[role] || "/";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -103,7 +107,7 @@ export default function Navbar() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard">
+                    <Link href={redirectPath}>
                       <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
                     </Link>
                   </DropdownMenuItem>

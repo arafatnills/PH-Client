@@ -1,5 +1,10 @@
 import apiClient from "@/lib/apiClient";
-import { ApplyAsDoctorFormPayload, VerifyOTP } from "@/types";
+import {
+  ApiResponse,
+  ApplyAsDoctorFormPayload,
+  Doctor,
+  VerifyOTP,
+} from "@/types";
 
 export function applyAsDoctor(doctorData: ApplyAsDoctorFormPayload) {
   const formData = new FormData();
@@ -21,4 +26,6 @@ export function verifyDoctorApplyOTP(otpData: VerifyOTP) {
   });
 }
 
-
+export function getAllDoctors() {
+  return apiClient<ApiResponse<Doctor[]>>("/doctor/all-doctors");
+}
